@@ -1,7 +1,6 @@
 using UnityEngine;
 using TMPro;
-using UnityEngine.UI;
-
+using UnityEngine.SceneManagement;
 public class GameManager : MonoBehaviour
 {
     public static GameManager Instance;
@@ -12,16 +11,13 @@ public class GameManager : MonoBehaviour
 
     [Header("Taxi")]
     public GameObject taxi;
-    public ArrowIndicator arrowIndicator; // Reference to the ArrowIndicator script
+    public ArrowIndicator arrowIndicator;
 
     [Header("UI Elements")]
     public UIManager uiManager;
 
     [Header("NPCs")]
-    public GameObject[] npcPrefabs; // Array of NPC prefabs with idle and wave animations
-
-    [Header("Screen Fade")]
-    public ScreenFade screenFade; // Reference to ScreenFade script
+    public GameObject[] npcPrefabs;
 
     [Header("Passenger Info")]
     private Transform currentPickupPoint;
@@ -29,24 +25,29 @@ public class GameManager : MonoBehaviour
     private bool hasPassenger = false;
     private float tripStartTime;
     private int collisionCount = 0;
-    public int totalScore = 0;
     private int passengersCompleted = 0;
 
-    private GameObject currentPassengerNPC; // Reference to the current passenger NPC
+    private GameObject currentPassengerNPC;
 
     // Fare settings
-    public float baseFare = 2.0f; // Base fare
-    public float costPerSecond = 0.1f; // Cost per second
-    public float costPerDistance = 0.5f; // Cost per unit distance
-    public float totalFare = 0.0f; // Total accumulated fare
+    public float baseFare = 2.0f;
+    public float costPerSecond = 0.1f;
+    public float costPerDistance = 0.5f;
+    public float totalFare = 0.0f;
 
-    // Define game states
-    private enum GameState { SelectingPassenger, GoingToPickup, GoingToDropoff }
+    // Day series settings
+    public int currentDay = 1;
+    public float dayDuration = 180.0f;  // 3 minutes
+    private float dayTimer;
+    public float earningsQuota = 100.0f;
+    public float earningsIncreaseRate = 1.5f;  // Increase quota each day
+    public float timeMultiplier = 0.9f;  // Reduce available time each day
+
+    private enum GameState { SelectingPassenger, GoingToPickup, GoingToDropoff, DayOver }
     private GameState currentState = GameState.SelectingPassenger;
 
     private void Awake()
     {
-        // Singleton pattern
         if (Instance == null)
         {
             Instance = this;
@@ -59,23 +60,61 @@ public class GameManager : MonoBehaviour
 
     private void Start()
     {
-        SelectNewPassenger();
+        Time.timeScale = 1.0f;
+
+        StartNewDay();
     }
 
     private void Update()
     {
-        if (currentState == GameState.GoingToDropoff && hasPassenger)
+        if (currentState != GameState.DayOver)
         {
-            float elapsedTime = Time.time - tripStartTime;
-            uiManager.UpdateTimer(elapsedTime);
+            dayTimer -= Time.deltaTime;
+            uiManager.UpdateDayTimer(dayTimer);
+
+            if (dayTimer <= 0)
+            {
+                EndDay(false);  // Time's up
+            }
+
+            if (totalFare >= earningsQuota)
+            {
+                EndDay(true);  // Quota reached
+            }
         }
+    }
+
+    public void StartNewDay()
+    {
+        dayTimer = dayDuration;
+        totalFare = 0.0f;
+        uiManager.UpdateDayInfo(currentDay, earningsQuota);
+
+        SelectNewPassenger();
+    }
+
+    private void EndDay(bool success)
+    {
+        currentState = GameState.DayOver;
+        if (success)
+        {
+            currentDay++;
+            earningsQuota *= earningsIncreaseRate;
+            dayDuration *= timeMultiplier;
+            uiManager.DisplayDaySuccess(currentDay, true);
+        }
+        else
+        {
+            uiManager.DisplayDaySuccess(currentDay, false);
+        }
+
+        Invoke("StartNewDay", 5f);  // Start the next day after 5 seconds
     }
 
     public void SelectNewPassenger()
     {
         currentState = GameState.SelectingPassenger;
 
-        // Disable all pickup and drop-off points first
         foreach (Transform pickup in pickupPoints)
         {
             pickup.gameObject.SetActive(false);
@@ -86,24 +125,13 @@ public class GameManager : MonoBehaviour
             drop.gameObject.SetActive(false);
         }
 
-        // Select random pickup and drop-off points
         currentPickupPoint = pickupPoints[Random.Range(0, pickupPoints.Length)];
         currentDropPoint = dropPoints[Random.Range(0, dropPoints.Length)];
 
-        // Enable only the current pickup point
         currentPickupPoint.gameObject.SetActive(true);
-
-        // Debug statements
-        Debug.Log($"Selected Pickup Point: {currentPickupPoint.name} at position {currentPickupPoint.position}");
-        Debug.Log($"Selected Drop-off Point: {currentDropPoint.name} at position {currentDropPoint.position}");
-
-        // Update arrow indicator to point to the pickup location
         arrowIndicator.SetTarget(currentPickupPoint.position);
-
-        // Notify UIManager to update passengers picked
         uiManager.UpdatePassengersPicked(passengersCompleted);
 
-        // Spawn NPC at pickup point
         SpawnPassengerAtPickup();
     }
 
@@ -115,14 +143,10 @@ public class GameManager : MonoBehaviour
             return;
         }
 
-        // Select a random NPC prefab
         int npcIndex = Random.Range(0, npcPrefabs.Length);
         GameObject npcPrefab = npcPrefabs[npcIndex];
 
-        // Instantiate NPC at pickup point's position and rotation
         currentPassengerNPC = Instantiate(npcPrefab, currentPickupPoint.position, Quaternion.identity);
-
-        // Ensure NPC is facing the taxi
         currentPassengerNPC.transform.LookAt(taxi.transform.position);
         currentPassengerNPC.transform.Rotate(0, 180f, 0);
     }
@@ -134,22 +158,15 @@ public class GameManager : MonoBehaviour
         collisionCount = 0;
         currentState = GameState.GoingToDropoff;
 
-        // Deactivate pickup point and activate drop-off point
         currentPickupPoint.gameObject.SetActive(false);
         currentDropPoint.gameObject.SetActive(true);
-
-        // Update arrow to point to drop-off location
         arrowIndicator.SetTarget(currentDropPoint.position);
 
-        uiManager.ShowArrow(true);
-        Debug.Log("Passenger picked up. Now heading to drop-off point.");
+        //uiManager.ShowArrow(true);
 
-        // Handle passenger NPC disappearance and screen fade
         if (currentPassengerNPC != null)
         {
-            // Make NPC disappear (e.g., disable the GameObject)
             currentPassengerNPC.SetActive(false);
-            Debug.Log("Passenger NPC has entered the taxi and disappeared.");
         }
     }
 
@@ -160,27 +177,47 @@ public class GameManager : MonoBehaviour
         float distance = Vector3.Distance(currentPickupPoint.position, currentDropPoint.position);
         float fare = CalculateFare(tripTime, distance);
 
-        totalFare += fare; // Add the current fare to the total fare
+        totalFare += fare;
         passengersCompleted++;
 
-        uiManager.ShowFare(totalFare); // Display total fare on UI
-        uiManager.ShowIndividualFare(fare); // Display fare for the current NPC
+        uiManager.ShowFare(totalFare);
+        uiManager.ShowIndividualFare(fare);
 
         CalculateScore(tripTime, collisionCount);
-        uiManager.ShowArrow(false);
-        uiManager.ShowScorePanel(tripTime, collisionCount, totalScore);
-
-        Debug.Log($"Passenger dropped off. Time: {tripTime:F1}s, Collisions: {collisionCount}, Total Score: {totalScore}, Total Fare: {totalFare:F2}, Individual Fare: {fare:F2}");
-
+        //uiManager.ShowArrow(false);
+        uiManager.ShowScorePanel(tripTime, collisionCount, totalFare);
         SpawnPassengerAtDropoff();
-
-        // Reset the timer
-        uiManager.ResetTimer();
-
         SelectNewPassenger();
     }
 
+    private float CalculateFare(float time, float distance)
+    {
+        float fare = baseFare + (costPerSecond * time) + (costPerDistance * distance);
+        return fare;
+    }
 
+    private void CalculateScore(float time, int collisions)
+    {
+        int score = Mathf.Max(1000 - Mathf.RoundToInt(time * 10) - collisions * 100, 0);
+        Debug.Log($"Score calculated: {score}");
+    }
+
+    public void PauseGame()
+    {
+        Time.timeScale = 0.0f;
+    }
+
+    public void UnPauseGame()
+    {
+        Time.timeScale = 1.0f;
+    }
+
+    public void GotoMenu()
+    {
+        SceneManager.LoadScene(0);
+        Time.timeScale = 1.0f;
+
+    }
     private void SpawnPassengerAtDropoff()
     {
         if (npcPrefabs.Length == 0)
@@ -214,35 +251,8 @@ public class GameManager : MonoBehaviour
         Destroy(npc, 2f);
     }
 
-    private float CalculateFare(float time, float distance)
-    {
-        float fare = baseFare + (costPerSecond * time) + (costPerDistance * distance);
-        return fare;
-    }
+    
 
-    private void CalculateScore(float time, int collisions)
-    {
-        // Example scoring: base score minus penalties
-        int score = Mathf.Max(1000 - Mathf.RoundToInt(time * 10) - collisions * 100, 0);
-        totalScore += score;
-        Debug.Log($"Score calculated: {score}, Total Score: {totalScore}");
-    }
 
-    public void IncrementCollision()
-    {
-        collisionCount++;
-        uiManager.UpdateCollisions(collisionCount);
-        Debug.Log($"Collision detected. Total Collisions this trip: {collisionCount}");
-    }
-
-    // Optional: Reset game
-    public void ResetGame()
-    {
-        totalScore = 0;
-        passengersCompleted = 0;
-        totalFare = 0; // Reset total fare if needed
-        uiManager.ResetUI();
-        SelectNewPassenger();
-        Debug.Log("Game reset.");
-    }
 }
+

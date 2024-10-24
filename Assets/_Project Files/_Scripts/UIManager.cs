@@ -1,33 +1,37 @@
 using UnityEngine;
 using TMPro;
-using UnityEngine.UI;
 
 public class UIManager : MonoBehaviour
 {
     [Header("Main UI")]
+    public TextMeshProUGUI dayText;
+    public TextMeshProUGUI quotaText;
     public TextMeshProUGUI timerText;
     public TextMeshProUGUI passengersText;
-    public TextMeshProUGUI collisionsText;
-    public TextMeshProUGUI scoreText;
+    public TextMeshProUGUI fareText;
+    public TextMeshProUGUI individualFareText;
 
     [Header("Score Panel")]
     public GameObject scorePanel;
     public TextMeshProUGUI panelTimeText;
     public TextMeshProUGUI panelCollisionsText;
-    public TextMeshProUGUI panelScoreText;
-    public TextMeshProUGUI fareText;
-    public TextMeshProUGUI individualFareText; // New field for individual fare
-    public Button closeButton;
+    public TextMeshProUGUI panelFareText;
+    public TextMeshProUGUI dayResultText;
 
     private void Start()
     {
         scorePanel.SetActive(false);
-        closeButton.onClick.AddListener(HideScorePanel);
     }
 
-    public void UpdateTimer(float time)
+    public void UpdateDayInfo(int dayNumber, float quota)
     {
-        timerText.text = $"Time: {time:F1}s";
+        dayText.text = $"Day {dayNumber}";
+        quotaText.text = $"Earn: ${quota:F2}";
+    }
+
+    public void UpdateDayTimer(float timeRemaining)
+    {
+        timerText.text = $"Time Left: {timeRemaining:F1}s";
     }
 
     public void UpdatePassengersPicked(int count)
@@ -35,56 +39,28 @@ public class UIManager : MonoBehaviour
         passengersText.text = $"Passengers: {count}";
     }
 
-    public void UpdateCollisions(int count)
+    public void ShowFare(float totalFare)
     {
-        collisionsText.text = $"Collisions: {count}";
+        fareText.text = $"Total Earnings: ${totalFare:F2}";
     }
 
-    public void UpdateScore(int score)
-    {
-        scoreText.text = $"Score: {score}";
-    }
-
-    public void ShowScorePanel(float time, int collisions, int score)
-    {
-        panelTimeText.text = $"Time: {time:F1}s";
-        panelCollisionsText.text = $"Collisions: {collisions}";
-        panelScoreText.text = $"Score: {score}";
-        scorePanel.SetActive(true);
-    }
-
-    public void HideScorePanel()
-    {
-        scorePanel.SetActive(false);
-        UpdateScore(GameManager.Instance.totalScore);
-    }
-
-    public void ShowArrow(bool show)
-    {
-        // Implement if needed
-    }
-
-    public void ResetUI()
-    {
-        timerText.text = "Time: 0s";
-        passengersText.text = "Passengers: 0";
-        collisionsText.text = "Collisions: 0";
-        scoreText.text = "Score: 0";
-        HideScorePanel();
-    }
-
-    public void ResetTimer()
-    {
-        timerText.text = "Time: 0s";
-    }
-
-    public void ShowFare(float fare)
-    {
-        fareText.text = $"Earnings: ${fare:F2}";
-    }
 
     public void ShowIndividualFare(float fare)
     {
-        individualFareText.text = $"Fare: ${fare:F2}"; // Display individual fare
+        individualFareText.text = $"Fare: ${fare:F2}";
+    }
+
+    public void ShowScorePanel(float time, int collisions, float fare)
+    {
+        panelTimeText.text = $"Time: {time:F1}s";
+        panelCollisionsText.text = $"Collisions: {collisions}";
+        panelFareText.text = $"Fare: ${fare:F2}";
+        scorePanel.SetActive(true);
+    }
+
+    public void DisplayDaySuccess(int dayNumber, bool success)
+    {
+        dayResultText.text = success ? $"Day {dayNumber} Complete!" : $"Day {dayNumber} Failed!";
+        scorePanel.SetActive(true);
     }
 }
