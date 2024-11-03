@@ -31,7 +31,7 @@ public class UIManager : MonoBehaviour
 
     public void UpdateDayTimer(float timeRemaining)
     {
-        timerText.text = $"Time Left: {timeRemaining:F1}s";
+        timerText.text = $"{timeRemaining:F1}";
     }
 
     public void UpdatePassengersPicked(int count)

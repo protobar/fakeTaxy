@@ -12,7 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 7756f06ac1b082e4bb1697f768a5a41f, type: 3}
   m_Name: RCC_Settings
   m_EditorClassIdentifier: 
-  behaviorSelectedIndex: 0
+  behaviorSelectedIndex: 4
   overrideBehavior: 1
   overrideFPS: 0
   overrideFixedTimeStep: 0
@@ -409,7 +409,7 @@ MonoBehaviour:
   units: 0
   uiType: 0
   useTelemetry: 0
-  mobileController: 2
+  mobileController: 0
   mobileControllerEnabled: 1
   UIButtonSensitivity: 10
   UIButtonGravity: 10
